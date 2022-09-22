@@ -1,4 +1,3 @@
-# Path: libpysal_approach.py
 #!/usr/bin/env python
 # coding: utf-8
 import pandas as pd
@@ -12,31 +11,51 @@ from scipy.spatial import distance
 import argparse
 
 parser = argparse.ArgumentParser(description='Process some integers.')
-parser.add_argument('--file', type=str, help='path to the csv file')
-parser.add_argument('--results_dir', type=str, help='path to the results directory')
-parser.add_argument('--critical_distance', type=float, help='critical distance')
+parser.add_argument('-i','--file', type=str, help='path to the csv file',
+                    required=True)
+parser.add_argument('-o', '--results_dir',
+                    type=str,
+                    help='path to the results directory'
+                         ', default current directory',
+                    default='.')
+parser.add_argument('-c', '--critical_distance',
+                    type=int, help='critical distance, default=30',
+                    default=30)
+parser.add_argument('-p', '--pair', type=str,
+                    help='cell type pair', required=True)
+parser.add_argument('-s', '--sep',help='csv separator, default tab',
+                    default='\t')
+parser.add_argument('-d', '--decimal',help='float decimal sign, default .',
+                    default='.')
 
 args = parser.parse_args()
 
 
-def network_plot(df, image, critical_distance, results_dir, prepend=''):
+def network_plot(df, image, critical_distance, results_dir, prepend='',
+                 pair='CD45:PANCK'):
     """
     This function subsets images from a dataframe and plots the network graph as well as the corresponding aac
     """
-    out_file = f'{prepend}image_{image}_distance_{critical_distance}.png'
+    cell_type_filter = pair.split(':')
+    class_1 = df.groupby('Class').get_group(cell_type_filter[0])
+    class_2 = df.groupby('Class').get_group(cell_type_filter[1])
+    filtered = df[(df['Class'] == cell_type_filter[0]) | (df['Class'] == cell_type_filter[1])]
+    out_file = f'{pair}_{prepend}image_{image}_distance_{critical_distance}.png'
     # extract the image
-    one_pic = df.groupby('Image').get_group(image).reset_index(drop=True)
-    #print(one_pic.head())
+    one_pic = filtered.groupby('Image').get_group(image).reset_index(drop=True)
+
     # extract the spatial coordinates
     coordinates = one_pic.iloc[:, [5, 6]]
     # extract the cell types
     cell_types = one_pic.Class
-    #print(cell_types)
+
 
     # Creating a graph from coordinates
     positions = coordinates.to_numpy()
-    # create a weights object   
+    print(coordinates)
+    # create a weights object
     w = weights.DistanceBand.from_array(positions, threshold=critical_distance)
+
     # create a networkx graph from the weights object
     G = nx.from_numpy_matrix(w.full()[0])
 
@@ -44,16 +63,15 @@ def network_plot(df, image, critical_distance, results_dir, prepend=''):
     # dist = distance.pdist(positions)
     # create a networkx graph from the distance matrix
     # G = nx.from_numpy_matrix(distance.squareform(dist))
-    # add the coordinates to the graph  
+
+    # add the coordinates to the graph
     for i, (x, y) in enumerate(positions):
         G.nodes[i]['pos'] = (x, y)
-    # add the cell types to the graph   
+
+    # add the cell types to the graph
     for i, cell_type in enumerate(cell_types):
         G.nodes[i]['cell_type'] = cell_type
-    # extract the cell types from the graph
-    # cell_types = [G.nodes[i]['cell_type'] for i in range(len(G.nodes))]
-    # extract the coordinates from the graph
-    # positions = [G.nodes[i]['pos'] for i in range(len(G.nodes))]
+
     # Plotting the graph
     aac = nx.attribute_assortativity_coefficient(G, 'cell_type')
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -68,9 +86,16 @@ def network_plot(df, image, critical_distance, results_dir, prepend=''):
 
 if __name__ == "__main__":
     if args.file:
-        df = pd.read_csv(args.file, sep='\t', low_memory=False).dropna(axis=1)
+        df = pd.read_csv(args.file,
+                         sep=args.sep,
+                         decimal=args.decimal,
+                         low_memory=False).dropna(axis=1)
         for image in df.Image.unique():
-            network_plot(df, image, args.critical_distance, args.results_dir)
+            network_plot(df,
+                         image=image,
+                         critical_distance=args.critical_distance,
+                         results_dir=args.results_dir,
+                         pair=args.pair)
     else:
         tma1_data = pd.read_csv('./ML_TMA1/obj_class_TMA1.csv',
                                 low_memory=False, decimal=',').dropna(axis=1)
