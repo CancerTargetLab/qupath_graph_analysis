@@ -37,9 +37,9 @@ def network_plot(df, image, critical_distance, results_dir, prepend='',
     This function subsets images from a dataframe and plots the network graph as well as the corresponding aac
     """
     cell_type_filter = pair.split(':')
-    class_1 = df.groupby('Class').get_group(cell_type_filter[0])
-    class_2 = df.groupby('Class').get_group(cell_type_filter[1])
-    filtered = df[(df['Class'] == cell_type_filter[0]) | (df['Class'] == cell_type_filter[1])]
+    #class_1 = df.groupby('Class').get_group(cell_type_filter[0])
+    #class_2 = df.groupby('Class').get_group(cell_type_filter[1])
+    filtered = df[(df['Class'] == cell_type_filter[0]) | (df['Class'] == cell_type_filter[1])].reset_index(drop=True)
     out_file = f'{pair}_{prepend}image_{image}_distance_{critical_distance}.png'
     # extract the image
     one_pic = filtered.groupby('Image').get_group(image).reset_index(drop=True)
@@ -52,7 +52,7 @@ def network_plot(df, image, critical_distance, results_dir, prepend='',
 
     # Creating a graph from coordinates
     positions = coordinates.to_numpy()
-    print(coordinates)
+
     # create a weights object
     w = weights.DistanceBand.from_array(positions, threshold=critical_distance)
 
@@ -76,35 +76,54 @@ def network_plot(df, image, critical_distance, results_dir, prepend='',
     aac = nx.attribute_assortativity_coefficient(G, 'cell_type')
     fig, ax = plt.subplots(figsize=(10, 10))
     # automatize cell type name and colors
-    color_map = ["red" if cell_type == "PANCK" else "blue" for cell_type in
+    color_map = ["red" if cell_type == cell_type_filter[0] else "blue" for cell_type in
                  cell_types]
     nx.draw(G, positions, node_size=10, node_color=color_map, with_labels=False,
             ax=ax)
     plt.title('attribute assortativity coefficient ' + str(aac))
     plt.savefig(f'{results_dir}/{out_file}')
     # construct dict with image name, centrality measures, ratio, aac, number of cells in classes and islands
+    centrality_measures = nx.degree_centrality(G)
+    n_cells_class_1 = one_pic.loc[one_pic['Class'] == cell_type_filter[0], 'Class'].count()
+    n_cells_class_2 = one_pic.loc[one_pic['Class'] == cell_type_filter[1], 'Class'].count()
+    n_islands = len(w.islands)
+    # ratio is the proportion of class 1 cells in the network
+    ratio = n_cells_class_1 / (n_cells_class_2 + n_cells_class_1)
+    return pd.Series({'image': image,
+            'class_1': cell_type_filter[0],
+            'class_2': cell_type_filter[1],
+            #'degree_centrality': centrality_measures,
+            'ratio 1/1+2': ratio,
+            'aac': aac,
+            'n_cells_class_1': n_cells_class_1,
+            'n_cells_class_2': n_cells_class_2,
+            'n_islands': n_islands})
 
 if __name__ == "__main__":
-    if args.file:
-        df = pd.read_csv(args.file,
-                         sep=args.sep,
-                         decimal=args.decimal,
-                         low_memory=False).dropna(axis=1)
-        for image in df.Image.unique():
-            network_plot(df,
-                         image=image,
-                         critical_distance=args.critical_distance,
-                         results_dir=args.results_dir,
-                         pair=args.pair)
-    else:
-        tma1_data = pd.read_csv('./ML_TMA1/obj_class_TMA1.csv',
-                                low_memory=False, decimal=',').dropna(axis=1)
-        tma2_data = pd.read_csv('./ML_TMA2/obj_class_TMA2.csv',
-                                low_memory=False, decimal=',').dropna(axis=1)
-        for image in tma1_data.Image.unique():
-            network_plot(tma1_data, image, 50, results_dir='Results',
-                         prepend='TMA1')
-        for image in tma2_data.Image.unique():
-            network_plot(tma2_data, image, 50, results_dir='Results',
-                         prepend='TMA2')
+    # create the output dictionary
+    out = pd.DataFrame({'image': [],
+            'class_1': [],
+            'class_2': [],
+            # 'degree_centrality': [],
+            'ratio 1/1+2': [],
+            'aac': [],
+            'n_cells_class_1': [],
+            'n_cells_class_2': [],
+            'n_islands': []})
+    # read the csv file
+    df = pd.read_csv(args.file,
+                     sep=args.sep,
+                     decimal=args.decimal,
+                     low_memory=False).dropna(axis=1)
+    # run main function for all images
+    for image in df.Image.unique():
+        out = pd.concat([network_plot(df,
+                     image=image,
+                     critical_distance=args.critical_distance,
+                     results_dir=args.results_dir,
+                     pair=args.pair).to_frame().T, out], ignore_index=True)
+
+    # save the output
+    out.to_csv(f'{args.results_dir}/results_{args.pair}_distance_{args.critical_distance}.csv', index=False)
+
 
