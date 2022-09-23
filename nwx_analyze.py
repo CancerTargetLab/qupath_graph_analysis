@@ -3,6 +3,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import image as im
 from libpysal import weights
 import networkx as nx
 import re
@@ -27,11 +28,12 @@ parser.add_argument('-s', '--sep',help='csv separator, default tab',
                     default='\t')
 parser.add_argument('-d', '--decimal',help='float decimal sign, default .',
                     default='.')
+parser.add_argument('-t', '--tiff_dir', type=str, help='path to the tiff directory', required=True)
 
 args = parser.parse_args()
 
 
-def network_plot(df, image, critical_distance, results_dir, prepend='',
+def network_plot(df, image, tiff_dir, critical_distance, results_dir, prepend='',
                  pair='CD45:PANCK'):
     """
     This function subsets images from a dataframe and plots the network graph as well as the corresponding aac
@@ -39,8 +41,14 @@ def network_plot(df, image, critical_distance, results_dir, prepend='',
     cell_type_filter = pair.split(':')
     #class_1 = df.groupby('Class').get_group(cell_type_filter[0])
     #class_2 = df.groupby('Class').get_group(cell_type_filter[1])
+    # get image file path
+    image_file = tiff_dir + '/' + image
+    # get image
+    my_img = plt.imread(image_file)
     filtered = df[(df['Class'] == cell_type_filter[0]) | (df['Class'] == cell_type_filter[1])].reset_index(drop=True)
-    out_file = f'{pair}_{prepend}image_{image}_distance_{critical_distance}.png'
+    # we don't want colons in file names
+    nice = pair.replace(':','_')
+    out_file = f'{nice}_{prepend}image_{image}_distance_{critical_distance}.png'
     # extract the image
     one_pic = filtered.groupby('Image').get_group(image).reset_index(drop=True)
 
@@ -51,7 +59,7 @@ def network_plot(df, image, critical_distance, results_dir, prepend='',
 
 
     # Creating a graph from coordinates
-    positions = coordinates.to_numpy()
+    positions =  (coordinates.to_numpy())
 
     # create a weights object
     w = weights.DistanceBand.from_array(positions, threshold=critical_distance)
@@ -74,13 +82,26 @@ def network_plot(df, image, critical_distance, results_dir, prepend='',
 
     # Plotting the graph
     aac = nx.attribute_assortativity_coefficient(G, 'cell_type')
-    fig, ax = plt.subplots(figsize=(10, 10))
-    # automatize cell type name and colors
+    fig = plt.figure(figsize=(10, 10))
+    y_lim, x_lim = my_img.shape[0], my_img.shape[1]
+    extent = 0, x_lim, 0, y_lim
+    # transpose image
+    # my_img = np.transpose(my_img, (1, 0, 2))
+    # my_img = np.fliplr(my_img)
+    my_img = np.flipud(my_img)
+    # draw the image
+    plt.imshow(my_img, cmap='gray', extent=extent, interpolation='nearest')
+    # cell type name and colors
     color_map = ["red" if cell_type == cell_type_filter[0] else "blue" for cell_type in
                  cell_types]
-    nx.draw(G, positions, node_size=10, node_color=color_map, with_labels=False,
-            ax=ax)
-    plt.title('attribute assortativity coefficient ' + str(aac))
+    # draw graph on image
+    nx.draw_networkx(G, pos=nx.get_node_attributes(G, 'pos'),
+                     node_color=color_map, node_size=10, alpha=0.5,
+                     edge_color='black', width=0.5, with_labels=False)
+
+
+    plt.title(f'{pair} image {image} distance {critical_distance} aac {aac:.2f}')
+
     plt.savefig(f'{results_dir}/{out_file}')
     # construct dict with image name, centrality measures, ratio, aac, number of cells in classes and islands
     centrality_measures = nx.degree_centrality(G)
@@ -119,6 +140,7 @@ if __name__ == "__main__":
     for image in df.Image.unique():
         out = pd.concat([network_plot(df,
                      image=image,
+                     tiff_dir=args.tiff_dir,
                      critical_distance=args.critical_distance,
                      results_dir=args.results_dir,
                      pair=args.pair).to_frame().T, out], ignore_index=True)
