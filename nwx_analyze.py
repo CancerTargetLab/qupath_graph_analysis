@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
+# author: Mattis
+# email: mattisknulst@gmail.com
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -92,19 +94,25 @@ def network_plot(df, image, tiff_dir, critical_distance, results_dir, prepend=''
     # draw the image
     plt.imshow(my_img, cmap='gray', extent=extent, interpolation='nearest')
     # cell type name and colors
+    c1 = f"{cell_type_filter[0]} (lime)"
+    c2 = f"{cell_type_filter[1]} (magenta)"
     color_map = ["lime" if cell_type == cell_type_filter[0] else "magenta" for cell_type in
                  cell_types]
     # draw graph on image
     nx.draw_networkx(G, pos=nx.get_node_attributes(G, 'pos'),
                      node_color=color_map, node_size=10, alpha=0.5,
-                     edge_color='black', width=0.5, with_labels=False)
+                     edge_color='yellow', width=0.5, with_labels=False)
 
 
-    plt.title(f'{pair} image {image} distance {critical_distance} aac {aac:.2f}')
+    plt.title(f'{c1} {c2} image {image} distance {critical_distance}px aac {aac:.2f}')
 
     plt.savefig(f'{results_dir}/{out_file}')
     # construct dict with image name, centrality measures, ratio, aac, number of cells in classes and islands
-    centrality_measures = nx.degree_centrality(G)
+    try:
+        centrality_measures = nx.group_degree_centrality(G, 'cell_type')
+    except Exception as e:
+        print(e)
+        centrality_measures = "error"
     n_cells_class_1 = one_pic.loc[one_pic['Class'] == cell_type_filter[0], 'Class'].count()
     n_cells_class_2 = one_pic.loc[one_pic['Class'] == cell_type_filter[1], 'Class'].count()
     n_islands = len(w.islands)
@@ -113,7 +121,7 @@ def network_plot(df, image, tiff_dir, critical_distance, results_dir, prepend=''
     return pd.Series({'image': image,
             'class_1': cell_type_filter[0],
             'class_2': cell_type_filter[1],
-            #'degree_centrality': centrality_measures,
+            'degree_centrality': centrality_measures,
             'ratio 1/1+2': ratio,
             'aac': aac,
             'n_cells_class_1': n_cells_class_1,
@@ -125,7 +133,7 @@ if __name__ == "__main__":
     out = pd.DataFrame({'image': [],
             'class_1': [],
             'class_2': [],
-            # 'degree_centrality': [],
+            'degree_centrality': [],
             'ratio 1/1+2': [],
             'aac': [],
             'n_cells_class_1': [],
