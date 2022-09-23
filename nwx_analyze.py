@@ -114,7 +114,7 @@ def network_plot(df, image, tiff_dir, critical_distance, results_dir, prepend=''
     # count number of islands
     n_islands = len(w.islands)
     # get all nodes belonging to class 1
-    class_1_nodes = [node for node, cell_type in G.nodes(data='cell_type') if cell_type == cell_type_filter[0]]
+    class_1_nodes = [node for node, cell_type in G.nodes(data='cell_type') if cell_type == cell_type_filter[1]]
     # calculate group degree centrality for class 1
     try:
         centrality_measures = nx.group_degree_centrality(G, class_1_nodes)
