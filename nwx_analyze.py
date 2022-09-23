@@ -107,15 +107,21 @@ def network_plot(df, image, tiff_dir, critical_distance, results_dir, prepend=''
     plt.title(f'{c1} {c2} image {image} distance {critical_distance}px aac {aac:.2f}')
 
     plt.savefig(f'{results_dir}/{out_file}')
-    # construct dict with image name, centrality measures, ratio, aac, number of cells in classes and islands
-    try:
-        centrality_measures = nx.group_degree_centrality(G, 'cell_type')
-    except Exception as e:
-        print(e)
-        centrality_measures = "error"
+
+    # count nr of cells in each class
     n_cells_class_1 = one_pic.loc[one_pic['Class'] == cell_type_filter[0], 'Class'].count()
     n_cells_class_2 = one_pic.loc[one_pic['Class'] == cell_type_filter[1], 'Class'].count()
+    # count number of islands
     n_islands = len(w.islands)
+    # get all nodes belonging to class 1
+    class_1_nodes = [node for node, cell_type in G.nodes(data='cell_type') if cell_type == cell_type_filter[0]]
+    # calculate group degree centrality for class 1
+    try:
+        centrality_measures = nx.group_degree_centrality(G, class_1_nodes)
+    except Exception as e:
+        print(e)
+        print('happens when there is only one class')
+        centrality_measures = 'NA'
     # ratio is the proportion of class 1 cells in the network
     ratio = n_cells_class_1 / (n_cells_class_2 + n_cells_class_1)
     return pd.Series({'image': image,
@@ -158,6 +164,9 @@ if __name__ == "__main__":
             continue
 
     # save the output
-    out.to_csv(f'{args.results_dir}/results_{args.pair}_distance_{args.critical_distance}.csv', index=False)
+    nice = args.pair.replace(':','_')
+    out.to_csv(
+        f'{args.results_dir}/results_{nice}_distance_{args.critical_distance}.csv',
+        index=False)
 
 
