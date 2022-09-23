@@ -55,7 +55,7 @@ def network_plot(df, image, tiff_dir, critical_distance, results_dir, prepend=''
     one_pic = filtered.groupby('Image').get_group(image).reset_index(drop=True)
 
     # extract the spatial coordinates
-    coordinates = one_pic.iloc[:, [5, 6]]
+    coordinates = one_pic.loc[:,["Centroid X px", "Centroid Y px"]]
     # extract the cell types
     cell_types = one_pic.Class
 
