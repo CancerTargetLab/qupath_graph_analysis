@@ -92,7 +92,7 @@ def network_plot(df, image, tiff_dir, critical_distance, results_dir, prepend=''
     # draw the image
     plt.imshow(my_img, cmap='gray', extent=extent, interpolation='nearest')
     # cell type name and colors
-    color_map = ["red" if cell_type == cell_type_filter[0] else "blue" for cell_type in
+    color_map = ["lime" if cell_type == cell_type_filter[0] else "magenta" for cell_type in
                  cell_types]
     # draw graph on image
     nx.draw_networkx(G, pos=nx.get_node_attributes(G, 'pos'),
