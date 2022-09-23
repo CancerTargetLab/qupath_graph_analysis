@@ -146,12 +146,16 @@ if __name__ == "__main__":
                      low_memory=False).dropna(axis=1)
     # run main function for all images
     for image in df.Image.unique():
-        out = pd.concat([network_plot(df,
-                     image=image,
-                     tiff_dir=args.tiff_dir,
-                     critical_distance=args.critical_distance,
-                     results_dir=args.results_dir,
-                     pair=args.pair).to_frame().T, out], ignore_index=True)
+        try:
+            out = pd.concat([network_plot(df,
+                         image=image,
+                         tiff_dir=args.tiff_dir,
+                         critical_distance=args.critical_distance,
+                         results_dir=args.results_dir,
+                         pair=args.pair).to_frame().T, out], ignore_index=True)
+        except Exception as e:
+            print(e)
+            continue
 
     # save the output
     out.to_csv(f'{args.results_dir}/results_{args.pair}_distance_{args.critical_distance}.csv', index=False)
