@@ -31,6 +31,48 @@ parser.add_argument('-t', '--tiff_dir', type=str,
 
 args = parser.parse_args()
 
+def cluster_cooccurrence(df, G, critical_distance):
+    """
+    This function calculates the cluster cooccurence, by creating a randomly
+    distributed coordinate system with cell types using the max and min values
+    from the corresponding columns in the data. Then it counts the average
+    number of edges over a set of critical distances and divides that with
+    with the same for the random case.
+    :param df: dataframe
+    returns: cluster cooccurence value
+    """
+    # get the max and min values for x and y coordinates
+    x_min = df["Centroid X px"].min()
+    x_max = df["Centroid X px"].max()
+    y_min = df["Centroid Y px"].min()
+    y_max = df["Centroid Y px"].max()
+    # get number of rows
+    n_rows = df.shape[0]
+    # create a random coordinate system
+    random_x = np.random.randint(x_min, x_max, size=(n_rows, 1))
+    random_y = np.random.randint(y_min, y_max, size=(n_rows, 1))
+    # create a dataframe with the random coordinates and name columns
+    random_coordinates = pd.DataFrame(
+        np.concatenate((random_x, random_y), axis=1),
+        columns=["Centroid X px", "Centroid Y px"])
+    # add the cell types to the random coordinates
+    random_coordinates["Class"] = df["Class"]
+    # create a graph from the random coordinates
+    random_graph, random_weights = make_graph(random_coordinates, critical_distance)
+
+    # only count edges between cells of different types
+    edges = [edge for edge in G.edges if G.nodes[edge[0]]['cell_type'] !=
+                G.nodes[edge[1]]['cell_type']]
+    # same thing for random graph
+    random_edges = [edge for edge in random_graph.edges if random_graph.nodes[edge[0]]['cell_type'] !=
+                random_graph.nodes[edge[1]]['cell_type']]
+    # calculate the cluster cooccurence
+    cluster_cooccurence = len(edges) / len(random_edges)
+    # print cluster cooccurence
+    #print("Cluster cooccurence: ", cluster_cooccurence)
+
+    return cluster_cooccurence
+
 
 def make_graph(df, critical_distance):
     """
@@ -107,15 +149,19 @@ def plot_graph(G, pair, results_dir, cell_type_filter, image_file,
     plt.savefig(f'{results_dir}/{out_file}')
 
 
-def calculate_statistics(df, G, w, cell_type_filter):
+def calculate_statistics(df, G, w, cell_type_filter, critical_distance):
     """
     This function calculates the statistics
     :param df: dataframe with x, y coordinates and cell type (qupath output)
     :param G: graph
     :param w: weights object
     :param cell_type_filter: cell type filter
+    :param critical_distance: critical distance needed for ccr
     :return: tuple of statistics
     """
+    # test that df contains class
+    assert 'Class' in df.columns, "df does not contain Class column"
+
     aac = nx.attribute_assortativity_coefficient(G, 'cell_type')
     # count nr of cells in each class
     n_cells_class_1 = df.loc[
@@ -136,8 +182,10 @@ def calculate_statistics(df, G, w, cell_type_filter):
         centrality_measures = 'NA'
     # ratio is the proportion of class 1 cells in the network
     ratio = n_cells_class_1 / (n_cells_class_2 + n_cells_class_1)
+    ccr = cluster_cooccurrence(df, G, critical_distance)
 
-    return aac, n_cells_class_1, n_cells_class_2, n_islands, centrality_measures, ratio
+    return aac, n_cells_class_1, n_cells_class_2,\
+           n_islands, centrality_measures, ratio, ccr
 
 
 def network_plot(df, image, tiff_dir, critical_distance, results_dir,
@@ -162,31 +210,25 @@ def network_plot(df, image, tiff_dir, critical_distance, results_dir,
     plot_graph(G, pair, results_dir, cell_type_filter, image_file,
                critical_distance, prepend=prepend)
     # calculate statistics
-    aac, n_cells_class_1, n_cells_class_2, n_islands, centrality_measures, ratio = calculate_statistics(
-        one_pic, G, w, cell_type_filter)
+    aac, n_cells_class_1, n_cells_class_2, n_islands,\
+    centrality_measures, ratio, ccr = calculate_statistics(
+        one_pic, G, w, cell_type_filter, critical_distance)
 
-    return pd.Series({'image': image,
-                      'class_1': cell_type_filter[0],
-                      'class_2': cell_type_filter[1],
-                      'degree_centrality': centrality_measures,
-                      'ratio 1/1+2': ratio,
-                      'aac': aac,
-                      'n_cells_class_1': n_cells_class_1,
-                      'n_cells_class_2': n_cells_class_2,
-                      'n_islands': n_islands})
+    return image, cell_type_filter[0], cell_type_filter[1], centrality_measures, ratio, aac, ccr, n_cells_class_1, n_cells_class_2, n_islands
 
 
 if __name__ == "__main__":
     # create the output dictionary
-    out = pd.DataFrame({'image': [],
-                        'class_1': [],
-                        'class_2': [],
-                        'degree_centrality': [],
-                        'ratio 1/1+2': [],
-                        'aac': [],
-                        'n_cells_class_1': [],
-                        'n_cells_class_2': [],
-                        'n_islands': []})
+    out = {'image': [],
+            'class_1': [],
+            'class_2': [],
+            'degree_centrality': [],
+            'ratio 1/1+2': [],
+            'aac': [],
+            'cluster_coocurrence': [],
+            'n_cells_class_1': [],
+            'n_cells_class_2': [],
+            'n_islands': []}
     # read the csv file
     df = pd.read_csv(args.file,
                      sep=args.sep,
@@ -194,20 +236,18 @@ if __name__ == "__main__":
                      low_memory=False).dropna(axis=1)
     # run main function for all images
     for image in df.Image.unique():
-        try:
-            out = pd.concat([network_plot(df,
-                                          image=image,
-                                          tiff_dir=args.tiff_dir,
-                                          critical_distance=args.critical_distance,
-                                          results_dir=args.results_dir,
-                                          pair=args.pair).to_frame().T, out],
-                            ignore_index=True)
-        except Exception as e:
-            print(e)
-            continue
+        # iterate over keys in out dictionary
+        for key, value in zip(out.keys(), network_plot(df, image, args.tiff_dir,
+                                                       args.critical_distance,
+                                                       args.results_dir,
+                                                       pair=args.pair)):
+            out[key].append(value)
+    # create dataframe from out dictionary
+    out_df = pd.DataFrame(out)
+    print(out_df.head())
 
     # save the output
     nice = args.pair.replace(':', '_')
-    out.to_csv(
+    out_df.to_csv(
         f'{args.results_dir}/results_{nice}_distance_{args.critical_distance}.csv',
         index=False)
