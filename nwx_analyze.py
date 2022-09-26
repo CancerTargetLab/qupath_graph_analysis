@@ -42,7 +42,7 @@ def make_graph(df, critical_distance):
     :return: graph
     """
     # extract the spatial coordinates
-    coordinates = one_pic.loc[:,["Centroid X px", "Centroid Y px"]]
+    coordinates = df.loc[:,["Centroid X px", "Centroid Y px"]]
     # extract the cell types
     cell_types = df.Class
     # Creating a graph from coordinates
