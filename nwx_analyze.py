@@ -148,6 +148,7 @@ def network_plot(df, image, tiff_dir, critical_distance, results_dir, prepend=''
     #class_2 = df.groupby('Class').get_group(cell_type_filter[1])
     # get image file path
     image_file = tiff_dir + '/' + image
+    # filter on cell type included in analysis
     filtered = df[(df['Class'] == cell_type_filter[0]) | (df['Class'] == cell_type_filter[1])].reset_index(drop=True)
     # extract the image
     one_pic = filtered.groupby('Image').get_group(image).reset_index(drop=True)
