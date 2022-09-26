@@ -2,19 +2,15 @@
 # coding: utf-8
 # author: Mattis
 # email: mattisknulst@gmail.com
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import image as im
-from libpysal import weights
-import networkx as nx
-import re
-import seaborn as sns
-from scipy.spatial import distance
 import argparse
+import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+import pandas as pd
+from libpysal import weights
 
 parser = argparse.ArgumentParser(description='Process some integers.')
-parser.add_argument('-i','--file', type=str, help='path to the csv file',
+parser.add_argument('-i', '--file', type=str, help='path to the csv file',
                     required=True)
 parser.add_argument('-o', '--results_dir',
                     type=str,
@@ -26,13 +22,15 @@ parser.add_argument('-c', '--critical_distance',
                     default=30)
 parser.add_argument('-p', '--pair', type=str,
                     help='cell type pair', required=True)
-parser.add_argument('-s', '--sep',help='csv separator, default tab',
+parser.add_argument('-s', '--sep', help='csv separator, default tab',
                     default='\t')
-parser.add_argument('-d', '--decimal',help='float decimal sign, default .',
+parser.add_argument('-d', '--decimal', help='float decimal sign, default .',
                     default='.')
-parser.add_argument('-t', '--tiff_dir', type=str, help='path to the tiff directory', required=True)
+parser.add_argument('-t', '--tiff_dir', type=str,
+                    help='path to the tiff directory', required=True)
 
 args = parser.parse_args()
+
 
 def make_graph(df, critical_distance):
     """
@@ -42,11 +40,11 @@ def make_graph(df, critical_distance):
     :return: graph
     """
     # extract the spatial coordinates
-    coordinates = df.loc[:,["Centroid X px", "Centroid Y px"]]
+    coordinates = df.loc[:, ["Centroid X px", "Centroid Y px"]]
     # extract the cell types
     cell_types = df.Class
     # Creating a graph from coordinates
-    positions =  (coordinates.to_numpy())
+    positions = (coordinates.to_numpy())
 
     # create a weights object
     w = weights.DistanceBand.from_array(positions, threshold=critical_distance)
@@ -62,10 +60,11 @@ def make_graph(df, critical_distance):
     for i, cell_type in enumerate(cell_types):
         G.nodes[i]['cell_type'] = cell_type
 
-
     return G, w
 
-def plot_graph(G, pair, results_dir, cell_type_filter, image_file, critical_distance, prepend=''):
+
+def plot_graph(G, pair, results_dir, cell_type_filter, image_file,
+               critical_distance, prepend=''):
     """
     This function plots the graph
     :param G: graph
@@ -80,7 +79,7 @@ def plot_graph(G, pair, results_dir, cell_type_filter, image_file, critical_dist
     # get image
     my_img = plt.imread(image_file)
     # we don't want colons in file names
-    nice = pair.replace(':','_')
+    nice = pair.replace(':', '_')
     out_file = f'{nice}_{prepend}image_{image}_distance_{critical_distance}.png'
     cell_types = [cell_type for node, cell_type in G.nodes(data='cell_type')]
     # plot the graph
@@ -95,13 +94,13 @@ def plot_graph(G, pair, results_dir, cell_type_filter, image_file, critical_dist
     # cell type name and colors
     c1 = f"{cell_type_filter[0]} (lime)"
     c2 = f"{cell_type_filter[1]} (magenta)"
-    color_map = ["lime" if cell_type == cell_type_filter[0] else "magenta" for cell_type in
+    color_map = ["lime" if cell_type == cell_type_filter[0] else "magenta" for
+                 cell_type in
                  cell_types]
     # draw graph on image
     nx.draw_networkx(G, pos=nx.get_node_attributes(G, 'pos'),
                      node_color=color_map, node_size=10, alpha=0.5,
                      edge_color='yellow', width=0.5, with_labels=False)
-
 
     plt.title(f'{c1} {c2} image {image} distance {critical_distance}px')
 
@@ -119,12 +118,15 @@ def calculate_statistics(df, G, w, cell_type_filter):
     """
     aac = nx.attribute_assortativity_coefficient(G, 'cell_type')
     # count nr of cells in each class
-    n_cells_class_1 = df.loc[df['Class'] == cell_type_filter[0], 'Class'].count()
-    n_cells_class_2 = df.loc[df['Class'] == cell_type_filter[1], 'Class'].count()
+    n_cells_class_1 = df.loc[
+        df['Class'] == cell_type_filter[0], 'Class'].count()
+    n_cells_class_2 = df.loc[
+        df['Class'] == cell_type_filter[1], 'Class'].count()
     # count number of islands
     n_islands = len(w.islands)
     # get all nodes belonging to class 1
-    class_1_nodes = [node for node, cell_type in G.nodes(data='cell_type') if cell_type == cell_type_filter[0]]
+    class_1_nodes = [node for node, cell_type in G.nodes(data='cell_type') if
+                     cell_type == cell_type_filter[0]]
     # calculate group degree centrality for class 1
     try:
         centrality_measures = nx.group_degree_centrality(G, class_1_nodes)
@@ -138,52 +140,53 @@ def calculate_statistics(df, G, w, cell_type_filter):
     return aac, n_cells_class_1, n_cells_class_2, n_islands, centrality_measures, ratio
 
 
-def network_plot(df, image, tiff_dir, critical_distance, results_dir, prepend='',
+def network_plot(df, image, tiff_dir, critical_distance, results_dir,
+                 prepend='',
                  pair='CD45:PANCK'):
     """
     main function for iterating image by image
     """
     cell_type_filter = pair.split(':')
-    #class_1 = df.groupby('Class').get_group(cell_type_filter[0])
-    #class_2 = df.groupby('Class').get_group(cell_type_filter[1])
+    # class_1 = df.groupby('Class').get_group(cell_type_filter[0])
+    # class_2 = df.groupby('Class').get_group(cell_type_filter[1])
     # get image file path
     image_file = tiff_dir + '/' + image
     # filter on cell type included in analysis
-    filtered = df[(df['Class'] == cell_type_filter[0]) | (df['Class'] == cell_type_filter[1])].reset_index(drop=True)
+    filtered = df[(df['Class'] == cell_type_filter[0]) | (
+                df['Class'] == cell_type_filter[1])].reset_index(drop=True)
     # extract the image
     one_pic = filtered.groupby('Image').get_group(image).reset_index(drop=True)
     # make graph
     G, w = make_graph(one_pic, critical_distance)
     # Plotting the graph
-    plot_graph(G, pair, results_dir, cell_type_filter, image_file, critical_distance, prepend=prepend)
+    plot_graph(G, pair, results_dir, cell_type_filter, image_file,
+               critical_distance, prepend=prepend)
     # calculate statistics
-    aac, n_cells_class_1, n_cells_class_2, n_islands, centrality_measures, ratio = calculate_statistics(one_pic, G, w, cell_type_filter)
-
+    aac, n_cells_class_1, n_cells_class_2, n_islands, centrality_measures, ratio = calculate_statistics(
+        one_pic, G, w, cell_type_filter)
 
     return pd.Series({'image': image,
-            'class_1': cell_type_filter[0],
-            'class_2': cell_type_filter[1],
-            'degree_centrality': centrality_measures,
-            'ratio 1/1+2': ratio,
-            'aac': aac,
-            'n_cells_class_1': n_cells_class_1,
-            'n_cells_class_2': n_cells_class_2,
-            'n_islands': n_islands})
-
-
+                      'class_1': cell_type_filter[0],
+                      'class_2': cell_type_filter[1],
+                      'degree_centrality': centrality_measures,
+                      'ratio 1/1+2': ratio,
+                      'aac': aac,
+                      'n_cells_class_1': n_cells_class_1,
+                      'n_cells_class_2': n_cells_class_2,
+                      'n_islands': n_islands})
 
 
 if __name__ == "__main__":
     # create the output dictionary
     out = pd.DataFrame({'image': [],
-            'class_1': [],
-            'class_2': [],
-            'degree_centrality': [],
-            'ratio 1/1+2': [],
-            'aac': [],
-            'n_cells_class_1': [],
-            'n_cells_class_2': [],
-            'n_islands': []})
+                        'class_1': [],
+                        'class_2': [],
+                        'degree_centrality': [],
+                        'ratio 1/1+2': [],
+                        'aac': [],
+                        'n_cells_class_1': [],
+                        'n_cells_class_2': [],
+                        'n_islands': []})
     # read the csv file
     df = pd.read_csv(args.file,
                      sep=args.sep,
@@ -193,19 +196,18 @@ if __name__ == "__main__":
     for image in df.Image.unique():
         try:
             out = pd.concat([network_plot(df,
-                         image=image,
-                         tiff_dir=args.tiff_dir,
-                         critical_distance=args.critical_distance,
-                         results_dir=args.results_dir,
-                         pair=args.pair).to_frame().T, out], ignore_index=True)
+                                          image=image,
+                                          tiff_dir=args.tiff_dir,
+                                          critical_distance=args.critical_distance,
+                                          results_dir=args.results_dir,
+                                          pair=args.pair).to_frame().T, out],
+                            ignore_index=True)
         except Exception as e:
             print(e)
             continue
 
     # save the output
-    nice = args.pair.replace(':','_')
+    nice = args.pair.replace(':', '_')
     out.to_csv(
         f'{args.results_dir}/results_{nice}_distance_{args.critical_distance}.csv',
         index=False)
-
-
