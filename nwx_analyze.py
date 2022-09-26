@@ -39,7 +39,7 @@ def make_graph(df, critical_distance):
     Make a graph from a dataframe with x, y coordinates and cell type
     :param df: dataframe with x, y coordinates and cell type (qupath output)
     :param critical_distance: distance in pixels
-    :return: graph
+    :return: graph and weights
     """
     # extract the spatial coordinates
     coordinates = df.loc[:,["Centroid X px", "Centroid Y px"]]
@@ -130,7 +130,7 @@ def calculate_statistics(df, G, w, cell_type_filter):
         centrality_measures = nx.group_degree_centrality(G, class_1_nodes)
     except Exception as e:
         print(e)
-        print('happens when there is only one class')
+        print('happens when there is only one class!')
         centrality_measures = 'NA'
     # ratio is the proportion of class 1 cells in the network
     ratio = n_cells_class_1 / (n_cells_class_2 + n_cells_class_1)
