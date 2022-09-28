@@ -1,6 +1,8 @@
 # graph analysis with network x
 
 dependencies: pandas numpy matplotlib libpysal networkx seaborn scipy
+new dependencies: alive-progress
+optional dependencies: geopandas
 
 # how to run:
 
