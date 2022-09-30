@@ -341,6 +341,7 @@ if __name__ == "__main__":
                                         pair=args.pair)
             except Exception as e:
                 bar.text(f'Error in {image}: {e}')
+                continue
             bar()
             # append to output dictionary
             for key, value in zip(out.keys(), results):
