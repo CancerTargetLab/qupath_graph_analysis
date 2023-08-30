@@ -14,7 +14,7 @@ import multiprocessing as mp
 import warnings
 
 
-parser = argparse.ArgumentParserer(description='Process some integers.')
+parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('-i', '--file', type=str, help='path to the csv file',
                     required=True)
 parser.add_argument('-o', '--results_dir',
